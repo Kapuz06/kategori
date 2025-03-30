@@ -169,7 +169,7 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
      * @param int $limit Maksimum sonuç sayısı
      * @return array Bulunan kategoriler
      */
-    public function search_categories_from_database($search_term, $limit = 20) {
+    public function search_categories_from_database($search_term, $limit = 10) {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'trendyol_categories';
@@ -219,7 +219,7 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
         }
         
         if (empty($category_attributes)) {
-            return array('attributes' => array());
+            return array();
         }
         
         // Veritabanı tablosuna kaydet
@@ -324,33 +324,6 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
         );
         
         return ($result !== false);
-    }
-    
-    /**
-     * Kategori nitelik eşleştirmelerini getir
-     *
-     * @param int $category_id Kategori ID
-     * @return array Nitelik eşleştirmeleri
-     */
-    public function get_attribute_mappings($category_id) {
-        global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'trendyol_category_attributes';
-        
-        $results = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT trendyol_attribute_id, wc_attribute_id FROM $table_name WHERE category_id = %d",
-                $category_id
-            ),
-            ARRAY_A
-        );
-        
-        $mappings = array();
-        foreach ($results as $mapping) {
-            $mappings[$mapping['trendyol_attribute_id']] = $mapping['wc_attribute_id'];
-        }
-        
-        return $mappings;
     }
     
     /**
@@ -513,7 +486,7 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
                 'id' => $category['id'],
                 'name' => $category['name'],
                 'parentId' => isset($category['parentId']) ? $category['parentId'] : 0,
-                'level' => $level, // Kategori seviyesini tutuyoruz
+                'level' => $level, // Kategori seviyesi tutuyoruz
                 'has_children' => !empty($category['subCategories'])
             ];
             
@@ -533,5 +506,25 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
     public function get_category_attributes($category_id) {
         // Yeni endpoint'i kullan
         return $this->get("integration/product/product-categories/{$category_id}/attributes");
+    }
+    
+    /**
+     * WooCommerce niteliklerini getir
+     *
+     * @return array WooCommerce nitelikleri
+     */
+    public function get_wc_attributes() {
+        $attributes = wc_get_attribute_taxonomies();
+        $result = array();
+        
+        foreach ($attributes as $attribute) {
+            $result[] = array(
+                'id' => $attribute->attribute_id,
+                'name' => $attribute->attribute_label,
+                'slug' => 'pa_' . $attribute->attribute_name
+            );
+        }
+        
+        return $result;
     }
 }
