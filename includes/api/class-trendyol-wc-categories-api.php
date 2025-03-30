@@ -155,8 +155,8 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
             trendyol_category_id BIGINT(20) NOT NULL,
             wc_category_id BIGINT(20) NOT NULL,
             PRIMARY KEY  (id),
-            UNIQUE KEY wc_category_id (wc_category_id),
-            KEY trendyol_category_id (trendyol_category_id)
+            KEY trendyol_category_id (trendyol_category_id),
+            KEY wc_category_id (wc_category_id)
         ) $charset_collate;";
         
         dbDelta($sql);
@@ -169,7 +169,7 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
      * @param int $limit Maksimum sonuç sayısı
      * @return array Bulunan kategoriler
      */
-    public function search_categories_from_database($search_term, $limit = 10) {
+    public function search_categories_from_database($search_term, $limit = 20) {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'trendyol_categories';
@@ -219,7 +219,7 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
         }
         
         if (empty($category_attributes)) {
-            return array();
+            return array('attributes' => array());
         }
         
         // Veritabanı tablosuna kaydet
@@ -324,6 +324,33 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
         );
         
         return ($result !== false);
+    }
+    
+    /**
+     * Kategori nitelik eşleştirmelerini getir
+     *
+     * @param int $category_id Kategori ID
+     * @return array Nitelik eşleştirmeleri
+     */
+    public function get_attribute_mappings($category_id) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'trendyol_category_attributes';
+        
+        $results = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT trendyol_attribute_id, wc_attribute_id FROM $table_name WHERE category_id = %d",
+                $category_id
+            ),
+            ARRAY_A
+        );
+        
+        $mappings = array();
+        foreach ($results as $mapping) {
+            $mappings[$mapping['trendyol_attribute_id']] = $mapping['wc_attribute_id'];
+        }
+        
+        return $mappings;
     }
     
     /**
