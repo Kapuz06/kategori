@@ -11,6 +11,436 @@ if (!defined('ABSPATH')) {
 
 class Trendyol_WC_Categories_API extends Trendyol_WC_API {
 
+    /**
+     * Trendyol kategorilerini veritabanına kaydet
+     *
+     * @return array|WP_Error Sonuç veya hata
+     */
+    public function sync_categories_to_database() {
+        global $wpdb;
+
+        // Trendyol'dan kategorileri getir
+        $response = $this->get_categories();
+        
+        if (is_wp_error($response)) {
+            return $response;
+        }
+        
+        $categories = isset($response['categories']) ? $response['categories'] : array();
+        
+        if (empty($categories)) {
+            return new WP_Error('no_categories', __('Trendyol\'dan kategori alınamadı.', 'trendyol-woocommerce'));
+        }
+        
+        // Kategori tablosunu oluştur veya güncelle
+        $this->create_categories_table();
+        
+        // Tüm kategorileri ekle
+        $table_name = $wpdb->prefix . 'trendyol_categories';
+        $inserted = 0;
+        $updated = 0;
+        
+        foreach ($categories as $category) {
+            $category_id = isset($category['id']) ? $category['id'] : 0;
+            $category_name = isset($category['name']) ? $category['name'] : '';
+            $parent_id = isset($category['parentId']) ? $category['parentId'] : 0;
+            $level = isset($category['level']) ? $category['level'] : 0;
+            
+            if (empty($category_id) || empty($category_name)) {
+                continue;
+            }
+            
+            // Mevcut kategori kontrolü
+            $existing = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT id FROM $table_name WHERE id = %d",
+                    $category_id
+                )
+            );
+            
+            if ($existing) {
+                // Güncelle
+                $result = $wpdb->update(
+                    $table_name,
+                    array(
+                        'name' => $category_name,
+                        'parent_id' => $parent_id,
+                        'level' => $level,
+                        'last_updated' => current_time('mysql')
+                    ),
+                    array('id' => $category_id),
+                    array('%s', '%d', '%d', '%s'),
+                    array('%d')
+                );
+                
+                if ($result !== false) {
+                    $updated++;
+                }
+            } else {
+                // Yeni ekle
+                $result = $wpdb->insert(
+                    $table_name,
+                    array(
+                        'id' => $category_id,
+                        'name' => $category_name,
+                        'parent_id' => $parent_id,
+                        'level' => $level,
+                        'last_updated' => current_time('mysql')
+                    ),
+                    array('%d', '%s', '%d', '%d', '%s')
+                );
+                
+                if ($result !== false) {
+                    $inserted++;
+                }
+            }
+        }
+        
+        // Son güncelleme zamanını kaydet
+        update_option('trendyol_categories_last_sync', current_time('mysql'));
+        
+        return array(
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'total' => count($categories)
+        );
+    }
+    
+    /**
+     * Trendyol kategorileri veritabanı tablosunu oluştur
+     */
+    public function create_categories_table() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'trendyol_categories';
+        $charset_collate = $wpdb->get_charset_collate();
+        
+        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+            id BIGINT(20) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            parent_id BIGINT(20) NOT NULL DEFAULT 0,
+            level INT(11) NOT NULL DEFAULT 0,
+            last_updated DATETIME NOT NULL,
+            PRIMARY KEY  (id),
+            KEY name (name),
+            KEY parent_id (parent_id)
+        ) $charset_collate;";
+        
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+        
+        // Kategori öznitelik eşleştirme tablosunu oluştur
+        $attributes_table = $wpdb->prefix . 'trendyol_category_attributes';
+        
+        $sql = "CREATE TABLE IF NOT EXISTS $attributes_table (
+            id BIGINT(20) NOT NULL AUTO_INCREMENT,
+            category_id BIGINT(20) NOT NULL,
+            trendyol_attribute_id BIGINT(20) NOT NULL,
+            trendyol_attribute_name VARCHAR(255) NOT NULL,
+            wc_attribute_id VARCHAR(255) DEFAULT NULL,
+            is_required TINYINT(1) NOT NULL DEFAULT 0,
+            last_updated DATETIME NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY category_attribute (category_id, trendyol_attribute_id),
+            KEY category_id (category_id)
+        ) $charset_collate;";
+        
+        dbDelta($sql);
+        
+        // Kategori eşleştirme tablosunu oluştur
+        $mappings_table = $wpdb->prefix . 'trendyol_category_mappings';
+        
+        $sql = "CREATE TABLE IF NOT EXISTS $mappings_table (
+            id BIGINT(20) NOT NULL AUTO_INCREMENT,
+            trendyol_category_id BIGINT(20) NOT NULL,
+            wc_category_id BIGINT(20) NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY wc_category_id (wc_category_id),
+            KEY trendyol_category_id (trendyol_category_id)
+        ) $charset_collate;";
+        
+        dbDelta($sql);
+    }
+    
+    /**
+     * Kategori arama
+     *
+     * @param string $search_term Arama terimi
+     * @param int $limit Maksimum sonuç sayısı
+     * @return array Bulunan kategoriler
+     */
+    public function search_categories_from_database($search_term, $limit = 10) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'trendyol_categories';
+        
+        // Arama terimini hazırla
+        $search_pattern = '%' . $wpdb->esc_like($search_term) . '%';
+        
+        // Veritabanında ara
+        $results = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id, name, parent_id, level FROM $table_name 
+                WHERE name LIKE %s OR id = %s 
+                ORDER BY level ASC, name ASC LIMIT %d",
+                $search_pattern,
+                $search_term, // Direk kategori ID araması için
+                $limit
+            ),
+            ARRAY_A
+        );
+        
+        return $results;
+    }
+    
+    /**
+     * Kategori niteliklerini getir ve veritabanına kaydet
+     *
+     * @param int $category_id Kategori ID
+     * @return array|WP_Error Kategori nitelikleri veya hata
+     */
+    public function get_and_save_category_attributes($category_id) {
+        global $wpdb;
+        
+        // Kategori niteliklerini API'dan getir
+        $response = $this->get_category_attributes($category_id);
+        
+        if (is_wp_error($response)) {
+            return $response;
+        }
+        
+        // API yanıt yapısını kontrol et ve uyarla
+        $category_attributes = array();
+        
+        if (isset($response['categoryAttributes'])) {
+            $category_attributes = $response['categoryAttributes'];
+        } elseif (isset($response['attributes'])) {
+            $category_attributes = $response['attributes'];
+        }
+        
+        if (empty($category_attributes)) {
+            return array();
+        }
+        
+        // Veritabanı tablosuna kaydet
+        $table_name = $wpdb->prefix . 'trendyol_category_attributes';
+        $inserted = 0;
+        $updated = 0;
+        
+        foreach ($category_attributes as $attribute) {
+            // Temel öznitelik bilgilerini çıkar
+            $attr_id = isset($attribute['attribute']['id']) ? $attribute['attribute']['id'] : 0;
+            $attr_name = isset($attribute['attribute']['name']) ? $attribute['attribute']['name'] : '';
+            $is_required = isset($attribute['required']) ? (int)$attribute['required'] : 0;
+            
+            if (empty($attr_id) || empty($attr_name)) {
+                continue;
+            }
+            
+            // Mevcut öznitelik kontrolü
+            $existing = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT id FROM $table_name WHERE category_id = %d AND trendyol_attribute_id = %d",
+                    $category_id, $attr_id
+                )
+            );
+            
+            if ($existing) {
+                // Güncelle
+                $result = $wpdb->update(
+                    $table_name,
+                    array(
+                        'trendyol_attribute_name' => $attr_name,
+                        'is_required' => $is_required,
+                        'last_updated' => current_time('mysql')
+                    ),
+                    array(
+                        'category_id' => $category_id,
+                        'trendyol_attribute_id' => $attr_id
+                    ),
+                    array('%s', '%d', '%s'),
+                    array('%d', '%d')
+                );
+                
+                if ($result !== false) {
+                    $updated++;
+                }
+            } else {
+                // Yeni ekle
+                $result = $wpdb->insert(
+                    $table_name,
+                    array(
+                        'category_id' => $category_id,
+                        'trendyol_attribute_id' => $attr_id,
+                        'trendyol_attribute_name' => $attr_name,
+                        'is_required' => $is_required,
+                        'last_updated' => current_time('mysql')
+                    ),
+                    array('%d', '%d', '%s', '%d', '%s')
+                );
+                
+                if ($result !== false) {
+                    $inserted++;
+                }
+            }
+        }
+        
+        // Öznitelik değerlerini JSON olarak ayrıca saklayalım
+        update_option('trendyol_category_' . $category_id . '_attributes', $response);
+        
+        return array(
+            'attributes' => $category_attributes,
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'total' => count($category_attributes)
+        );
+    }
+    
+    /**
+     * Kategori nitelikleri için WooCommerce nitelik eşleştirmesini kaydet
+     *
+     * @param int $category_id Trendyol Kategori ID
+     * @param int $trendyol_attribute_id Trendyol Nitelik ID
+     * @param string $wc_attribute_id WooCommerce Nitelik ID
+     * @return bool İşlem başarılı mı
+     */
+    public function save_attribute_mapping($category_id, $trendyol_attribute_id, $wc_attribute_id) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'trendyol_category_attributes';
+        
+        $result = $wpdb->update(
+            $table_name,
+            array(
+                'wc_attribute_id' => $wc_attribute_id,
+                'last_updated' => current_time('mysql')
+            ),
+            array(
+                'category_id' => $category_id,
+                'trendyol_attribute_id' => $trendyol_attribute_id
+            ),
+            array('%s', '%s'),
+            array('%d', '%d')
+        );
+        
+        return ($result !== false);
+    }
+    
+    /**
+     * Kategori eşleştirmelerini kaydet
+     *
+     * @param int $trendyol_category_id Trendyol Kategori ID
+     * @param array $wc_category_ids WooCommerce Kategori ID'leri
+     * @return array İşlem sonucu
+     */
+    public function save_category_mappings($trendyol_category_id, $wc_category_ids) {
+        global $wpdb;
+        
+        $mappings_table = $wpdb->prefix . 'trendyol_category_mappings';
+        
+        // Önce bu Trendyol kategorisi için tüm mevcut eşlemeleri kaldır
+        $wpdb->delete(
+            $mappings_table,
+            array('trendyol_category_id' => $trendyol_category_id),
+            array('%d')
+        );
+        
+        $inserted = 0;
+        
+        // Yeni eşlemeleri ekle
+        foreach ($wc_category_ids as $wc_category_id) {
+            if (empty($wc_category_id)) {
+                continue;
+            }
+            
+            $result = $wpdb->insert(
+                $mappings_table,
+                array(
+                    'trendyol_category_id' => $trendyol_category_id,
+                    'wc_category_id' => $wc_category_id
+                ),
+                array('%d', '%d')
+            );
+            
+            if ($result !== false) {
+                // Trendyol kategori ID'sini meta veri olarak kaydet
+                update_term_meta($wc_category_id, '_trendyol_category_id', $trendyol_category_id);
+                $inserted++;
+            }
+        }
+        
+        // Kategori eşleşmelerini eski format için de güncelle (geriye uyumluluk)
+        $this->update_legacy_category_mappings();
+        
+        return array(
+            'inserted' => $inserted,
+            'total' => count($wc_category_ids)
+        );
+    }
+    
+    /**
+     * Eski format kategori eşleşmelerini güncelle (geriye uyumluluk)
+     *
+     * @return bool İşlem başarılı mı
+     */
+    private function update_legacy_category_mappings() {
+        global $wpdb;
+        
+        $mappings_table = $wpdb->prefix . 'trendyol_category_mappings';
+        
+        // Yeni format eşleşmeleri al
+        $mappings = $wpdb->get_results(
+            "SELECT trendyol_category_id, wc_category_id FROM $mappings_table",
+            ARRAY_A
+        );
+        
+        // Eski format eşleşme dizisini oluştur
+        $legacy_mappings = array();
+        foreach ($mappings as $mapping) {
+            $legacy_mappings[$mapping['wc_category_id']] = $mapping['trendyol_category_id'];
+        }
+        
+        // Eski format eşleşmeleri kaydet
+        update_option('trendyol_wc_category_mappings', $legacy_mappings);
+        
+        return true;
+    }
+    
+    /**
+     * Kategori eşleştirmelerini getir
+     *
+     * @param int $trendyol_category_id Trendyol Kategori ID (opsiyonel)
+     * @return array Eşleştirmeler
+     */
+    public function get_category_mappings($trendyol_category_id = null) {
+        global $wpdb;
+        
+        $mappings_table = $wpdb->prefix . 'trendyol_category_mappings';
+        
+        if ($trendyol_category_id) {
+            // Belirli bir Trendyol kategorisi için eşleşmeleri getir
+            $mappings = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT wc_category_id FROM $mappings_table WHERE trendyol_category_id = %d",
+                    $trendyol_category_id
+                ),
+                ARRAY_A
+            );
+            
+            $wc_category_ids = array();
+            foreach ($mappings as $mapping) {
+                $wc_category_ids[] = $mapping['wc_category_id'];
+            }
+            
+            return $wc_category_ids;
+        } else {
+            // Tüm eşleşmeleri getir
+            return $wpdb->get_results(
+                "SELECT * FROM $mappings_table ORDER BY trendyol_category_id ASC",
+                ARRAY_A
+            );
+        }
+    }
     
     /**
      * Tüm kategorileri getir
@@ -67,355 +497,14 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
         }
     }
         
+    /**
+     * Kategori özelliklerini getir
+     *
+     * @param int $category_id Kategori ID
+     * @return array|WP_Error Kategori özellikleri veya hata
+     */
     public function get_category_attributes($category_id) {
         // Yeni endpoint'i kullan
         return $this->get("integration/product/product-categories/{$category_id}/attributes");
-    }
-
-
-
-    
-
-    /**
-     * Kategoriyi WooCommerce uyumlu formata dönüştür
-     *
-     * @param array $trendyol_category Trendyol kategori verisi
-     * @param array $parent_ids Üst kategori ID'leri (isteğe bağlı)
-     * @return array WooCommerce kategori verisi
-     */
-    public function format_category_for_woocommerce($trendyol_category, $parent_ids = array()) {
-        // Kategori adı
-        $name = isset($trendyol_category['name']) ? $trendyol_category['name'] : '';
-        
-        // Kategori ID
-        $category_id = isset($trendyol_category['id']) ? $trendyol_category['id'] : 0;
-        
-        // Ana kategori kontrolü
-        $parent_id = 0;
-        if (!empty($parent_ids) && isset($trendyol_category['parentId'])) {
-            $parent_trendyol_id = $trendyol_category['parentId'];
-            if (isset($parent_ids[$parent_trendyol_id])) {
-                $parent_id = $parent_ids[$parent_trendyol_id];
-            }
-        }
-        
-        // WooCommerce kategori verisini oluştur
-        $wc_category = array(
-            'name' => $name,
-            'slug' => sanitize_title($name),
-            'description' => '',
-            'parent' => $parent_id,
-            'meta_data' => array(
-                array(
-                    'key' => '_trendyol_category_id',
-                    'value' => $category_id
-                )
-            )
-        );
-        
-        return $wc_category;
-    }
-    
-    /**
-     * Trendyol kategorilerini WooCommerce'e içe aktar
-     *
-     * @param bool $create_if_not_exists Yoksa kategori oluştur
-     * @return array İçe aktarılan kategoriler
-     */
-    public function import_categories_to_woocommerce($create_if_not_exists = false) {
-        // Trendyol kategorilerini getir
-        $categories_response = $this->get_categories();
-        
-        if (is_wp_error($categories_response)) {
-            return $categories_response;
-        }
-        
-        // Kategoriler
-        $categories = isset($categories_response['categories']) ? $categories_response['categories'] : array();
-        
-        if (empty($categories)) {
-            return new WP_Error('no_categories', __('Trendyol\'dan kategori alınamadı.', 'trendyol-woocommerce'));
-        }
-        
-        // Mevcut kategori eşleşmeleri
-        $category_mappings = get_option('trendyol_wc_category_mappings', array());
-        
-        // Kategori hiyerarşisini oluştur
-        $category_tree = array();
-        $imported_ids = array();
-        
-        // Kategorileri parent ID'lerine göre grupla
-        foreach ($categories as $category) {
-            $parent_id = isset($category['parentId']) ? $category['parentId'] : 0;
-            if (!isset($category_tree[$parent_id])) {
-                $category_tree[$parent_id] = array();
-            }
-            $category_tree[$parent_id][] = $category;
-        }
-        
-        // Önce tüm üst kategorileri içe aktar
-        if (isset($category_tree[0])) {
-            foreach ($category_tree[0] as $parent_category) {
-                $trendyol_category_id = $parent_category['id'];
-                
-                // Kategori zaten eşleştirilmiş mi kontrol et
-                if (array_search($trendyol_category_id, $category_mappings) !== false) {
-                    $wc_category_id = array_search($trendyol_category_id, $category_mappings);
-                    $imported_ids[$trendyol_category_id] = $wc_category_id;
-                    continue;
-                }
-                
-                // Kategori adıyla mevcut bir WooCommerce kategorisi ara
-                $existing_term = get_term_by('name', $parent_category['name'], 'product_cat');
-                
-                if ($existing_term) {
-                    // Mevcut kategoriye Trendyol ID meta verisi ekle
-                    update_term_meta($existing_term->term_id, '_trendyol_category_id', $trendyol_category_id);
-                    
-                    // Eşleşme ekle
-                    $category_mappings[$existing_term->term_id] = $trendyol_category_id;
-                    $imported_ids[$trendyol_category_id] = $existing_term->term_id;
-                } elseif ($create_if_not_exists) {
-                    // Yeni kategori oluştur
-                    $wc_category = $this->format_category_for_woocommerce($parent_category);
-                    
-                    $term_result = wp_insert_term(
-                        $wc_category['name'],
-                        'product_cat',
-                        array(
-                            'description' => $wc_category['description'],
-                            'slug' => $wc_category['slug'],
-                            'parent' => $wc_category['parent']
-                        )
-                    );
-                    
-                    if (!is_wp_error($term_result)) {
-                        $wc_category_id = $term_result['term_id'];
-                        
-                        // Trendyol ID meta verisi ekle
-                        update_term_meta($wc_category_id, '_trendyol_category_id', $trendyol_category_id);
-                        
-                        // Eşleşme ekle
-                        $category_mappings[$wc_category_id] = $trendyol_category_id;
-                        $imported_ids[$trendyol_category_id] = $wc_category_id;
-                    }
-                }
-            }
-        }
-        
-        // Sonra alt kategorileri seviye seviye içe aktar
-        $max_depth = 5; // Maksimum kategori derinliği
-        
-        for ($depth = 1; $depth < $max_depth; $depth++) {
-            foreach ($imported_ids as $trendyol_parent_id => $wc_parent_id) {
-                if (isset($category_tree[$trendyol_parent_id])) {
-                    foreach ($category_tree[$trendyol_parent_id] as $child_category) {
-                        $trendyol_category_id = $child_category['id'];
-                        
-                        // Kategori zaten eşleştirilmiş mi kontrol et
-                        if (array_search($trendyol_category_id, $category_mappings) !== false) {
-                            $wc_category_id = array_search($trendyol_category_id, $category_mappings);
-                            $imported_ids[$trendyol_category_id] = $wc_category_id;
-                            
-                            // Ebeveyn kontrolü ve güncelleme
-                            $term = get_term($wc_category_id, 'product_cat');
-                            if ($term && !is_wp_error($term) && $create_if_not_exists) {
-                                // Ebeveyn farklıysa güncelle
-                                if ($term->parent != $wc_parent_id) {
-                                    wp_update_term($wc_category_id, 'product_cat', array(
-                                        'parent' => $wc_parent_id
-                                    ));
-                                }
-                            }
-                            
-                            continue;
-                        }
-                        
-                        // Kategori adı ve ebeveyn ile mevcut bir WooCommerce kategorisi ara
-                        $existing_terms = get_terms(array(
-                            'taxonomy' => 'product_cat',
-                            'name' => $child_category['name'],
-                            'parent' => $wc_parent_id,
-                            'hide_empty' => false
-                        ));
-                        
-                        if (!empty($existing_terms) && !is_wp_error($existing_terms)) {
-                            $existing_term = reset($existing_terms);
-                            
-                            // Mevcut kategoriye Trendyol ID meta verisi ekle
-                            update_term_meta($existing_term->term_id, '_trendyol_category_id', $trendyol_category_id);
-                            
-                            // Eşleşme ekle
-                            $category_mappings[$existing_term->term_id] = $trendyol_category_id;
-                            $imported_ids[$trendyol_category_id] = $existing_term->term_id;
-                        } elseif ($create_if_not_exists) {
-                            // Yeni kategori oluştur
-                            $term_result = wp_insert_term(
-                                $child_category['name'],
-                                'product_cat',
-                                array(
-                                    'description' => '',
-                                    'slug' => sanitize_title($child_category['name']),
-                                    'parent' => $wc_parent_id
-                                )
-                            );
-                            
-                            if (!is_wp_error($term_result)) {
-                                $wc_category_id = $term_result['term_id'];
-                                
-                                // Trendyol ID meta verisi ekle
-                                update_term_meta($wc_category_id, '_trendyol_category_id', $trendyol_category_id);
-                                
-                                // Eşleşme ekle
-                                $category_mappings[$wc_category_id] = $trendyol_category_id;
-                                $imported_ids[$trendyol_category_id] = $wc_category_id;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Kategori eşleşmelerini güncelle
-        update_option('trendyol_wc_category_mappings', $category_mappings);
-        
-        return $category_mappings;
-    }
-    
-    /**
-     * Kategori özelliklerini WooCommerce ürün özelliklerine dönüştür
-     *
-     * @param int $category_id Trendyol kategori ID
-     * @return array WooCommerce ürün özellikleri
-     */
-    public function import_category_attributes_to_woocommerce($category_id) {
-        // Kategori özelliklerini getir
-        $attributes_response = $this->get_category_attributes($category_id);
-        
-        if (is_wp_error($attributes_response)) {
-            return $attributes_response;
-        }
-        
-        // API yanıt yapısını kontrol et ve uyarla
-        $category_attributes = array();
-        
-        if (isset($attributes_response['categoryAttributes'])) {
-            $category_attributes = $attributes_response['categoryAttributes'];
-        } elseif (isset($attributes_response['attributes'])) {
-            $category_attributes = $attributes_response['attributes'];
-        }
-        
-        if (empty($category_attributes)) {
-            return array();
-        }
-        
-        $wc_attributes = array();
-        
-        foreach ($category_attributes as $attribute) {
-            $attribute_id = isset($attribute['id']) ? $attribute['id'] : 0;
-            $attribute_name = isset($attribute['name']) ? $attribute['name'] : '';
-            
-            // Zorunlu alan kontrolü
-            $is_required = isset($attribute['required']) ? (bool) $attribute['required'] : false;
-            
-            // Varyant özelliği kontrolü
-            $is_variant = isset($attribute['allowedForVariant']) ? (bool) $attribute['allowedForVariant'] : false;
-            
-            // Değerler
-            $attribute_values = isset($attribute['attributeValues']) ? $attribute['attributeValues'] : array();
-            $values = array();
-            
-            foreach ($attribute_values as $value) {
-                $values[] = isset($value['name']) ? $value['name'] : '';
-            }
-            
-            $wc_attributes[] = array(
-                'id' => $attribute_id,
-                'name' => $attribute_name,
-                'slug' => sanitize_title($attribute_name),
-                'required' => $is_required,
-                'variant' => $is_variant,
-                'values' => $values
-            );
-        }
-        
-        return $wc_attributes;
-    }
-    
-    /**
-     * Kategori özelliklerini WooCommerce özniteliklerine (attribute) dönüştür
-     *
-     * @param array $attributes Özellikler
-     * @return array Oluşturulan WooCommerce öznitelik taksonomi adları
-     */
-    public function create_wc_product_attributes($attributes) {
-        if (empty($attributes)) {
-            return array();
-        }
-        
-        $created_attributes = array();
-        
-        foreach ($attributes as $attribute) {
-            $attribute_name = isset($attribute['name']) ? $attribute['name'] : '';
-            $attribute_slug = isset($attribute['slug']) ? $attribute['slug'] : sanitize_title($attribute_name);
-            $attribute_id = isset($attribute['id']) ? $attribute['id'] : 0;
-            
-            if (empty($attribute_name)) {
-                continue;
-            }
-            
-            // Taksonomi adı oluştur
-            $taxonomy_name = 'pa_' . $attribute_slug;
-            
-            // Öznitelik mevcut mu kontrol et
-            if (!taxonomy_exists($taxonomy_name)) {
-                // Yeni öznitelik oluştur
-                wc_create_attribute(array(
-                    'name' => $attribute_name,
-                    'slug' => $attribute_slug,
-                    'type' => 'select',
-                    'order_by' => 'menu_order',
-                    'has_archives' => false
-                ));
-                
-                // Taksonomi kaydet
-                register_taxonomy(
-                    $taxonomy_name,
-                    'product',
-                    array(
-                        'label' => $attribute_name,
-                        'rewrite' => array('slug' => $attribute_slug),
-                        'hierarchical' => true
-                    )
-                );
-            }
-            
-            // Trendyol öznitelik ID meta verisini ekle
-            $attribute_taxonomies = wc_get_attribute_taxonomies();
-            
-            foreach ($attribute_taxonomies as $tax) {
-                if ($tax->attribute_name === $attribute_slug) {
-                    update_option('_trendyol_attribute_id_' . $tax->attribute_id, $attribute_id);
-                    break;
-                }
-            }
-            
-            // Değerleri ekle
-            if (!empty($attribute['values'])) {
-                foreach ($attribute['values'] as $value) {
-                    if (empty($value)) {
-                        continue;
-                    }
-                    
-                    if (!term_exists($value, $taxonomy_name)) {
-                        wp_insert_term($value, $taxonomy_name);
-                    }
-                }
-            }
-            
-            $created_attributes[] = $taxonomy_name;
-        }
-        
-        return $created_attributes;
     }
 }
