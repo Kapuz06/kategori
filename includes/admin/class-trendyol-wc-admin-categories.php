@@ -21,11 +21,43 @@ class Trendyol_WC_Admin_Categories {
         add_action('wp_ajax_trendyol_map_categories', array($this, 'ajax_map_categories'));
         add_action('wp_ajax_trendyol_get_category_attributes', array($this, 'ajax_get_category_attributes'));
         add_action('wp_ajax_trendyol_map_category_attribute', array($this, 'ajax_map_category_attribute'));
-        add_action('wp_ajax_trendyol_unmap_category', array($this, 'ajax_unmap_category')); // Yeni AJAX handler
+        add_action('wp_ajax_trendyol_unmap_category', array($this, 'ajax_unmap_category')); // Kategori eşleme işlemi
+        add_action('wp_ajax_trendyol_sync_categories_ajax', array($this, 'ajax_sync_categories')); // Kategorileri senkronize etme işlemi
         
         // Cron job kurulumu
         add_action('wp', array($this, 'setup_category_sync_cron'));
         add_action('trendyol_categories_sync_event', array($this, 'sync_categories_cron_job'));
+    }
+
+    /**
+     * AJAX ile kategori senkronizasyonu
+     */
+    public function ajax_sync_categories() {
+        // Güvenlik kontrolü
+        check_ajax_referer('trendyol-wc-nonce', 'nonce');
+        
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('Bu işlemi yapmaya yetkiniz yok.', 'trendyol-woocommerce')]);
+            return;
+        }
+        
+        // Kategorileri senkronize et
+        $categories_api = new Trendyol_WC_Categories_API();
+        $result = $categories_api->sync_categories_to_database();
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()]);
+            return;
+        }
+        
+        wp_send_json_success([
+            'message' => sprintf(
+                __('%d kategori veritabanına kaydedildi. (%d yeni, %d güncellendi)', 'trendyol-woocommerce'),
+                $result['total'],
+                $result['inserted'],
+                $result['updated']
+            )
+        ]);
     }
     
     /**
@@ -267,12 +299,28 @@ class Trendyol_WC_Admin_Categories {
             );
         }
         
+        // Mevcut eşleştirmeleri getir
+        $mapped_attributes = $categories_api->get_attribute_mappings($category_id);
+        
+        // Nitelikleri eşleşme durumuna göre düzenle
+        $trendyol_attributes = isset($result['attributes']) ? $result['attributes'] : array();
+        
+        foreach ($trendyol_attributes as $key => $attribute) {
+            $attr_id = $attribute['attribute']['id'];
+            
+            if (isset($mapped_attributes[$attr_id])) {
+                $trendyol_attributes[$key]['mapped_to'] = $mapped_attributes[$attr_id];
+            } else {
+                $trendyol_attributes[$key]['mapped_to'] = '';
+            }
+        }
+        
         $response = array(
-            'trendyol_attributes' => isset($result['attributes']) ? $result['attributes'] : array(),
+            'trendyol_attributes' => $trendyol_attributes,
             'wc_attributes' => $attributes_for_mapping,
             'message' => sprintf(
                 __('%d kategori niteliği alındı.', 'trendyol-woocommerce'),
-                count(isset($result['attributes']) ? $result['attributes'] : array())
+                count($trendyol_attributes)
             )
         );
         
@@ -324,7 +372,7 @@ class Trendyol_WC_Admin_Categories {
         $categories_api = new Trendyol_WC_Categories_API();
         $categories_api->create_categories_table();
         
-        // Kategori senkronizasyonu işlemi
+        // Kategori senkronizasyonu işlemi (manuel tetikleme)
         if (isset($_POST['trendyol_sync_categories']) && check_admin_referer('trendyol_sync_categories')) {
             $result = $categories_api->sync_categories_to_database();
             
