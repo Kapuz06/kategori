@@ -21,10 +21,57 @@ class Trendyol_WC_Admin_Categories {
         add_action('wp_ajax_trendyol_map_categories', array($this, 'ajax_map_categories'));
         add_action('wp_ajax_trendyol_get_category_attributes', array($this, 'ajax_get_category_attributes'));
         add_action('wp_ajax_trendyol_map_category_attribute', array($this, 'ajax_map_category_attribute'));
+        add_action('wp_ajax_trendyol_unmap_category', array($this, 'ajax_unmap_category')); // Yeni AJAX handler
         
         // Cron job kurulumu
         add_action('wp', array($this, 'setup_category_sync_cron'));
         add_action('trendyol_categories_sync_event', array($this, 'sync_categories_cron_job'));
+    }
+    
+    /**
+     * Kategori eşleştirmesini kaldırma AJAX işleyicisi
+     */
+    public function ajax_unmap_category() {
+        // Güvenlik kontrolü
+        check_ajax_referer('trendyol-wc-nonce', 'nonce');
+        
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(['message' => __('Bu işlemi yapmaya yetkiniz yok.', 'trendyol-woocommerce')]);
+            return;
+        }
+        
+        // Parametreleri al
+        $trendyol_category_id = isset($_POST['trendyol_category_id']) ? intval($_POST['trendyol_category_id']) : 0;
+        
+        if (empty($trendyol_category_id)) {
+            wp_send_json_error(['message' => __('Trendyol kategori ID\'si gerekli.', 'trendyol-woocommerce')]);
+            return;
+        }
+        
+        global $wpdb;
+        $mappings_table = $wpdb->prefix . 'trendyol_category_mappings';
+        
+        // Kategori eşleştirmelerini kaldır
+        $result = $wpdb->delete(
+            $mappings_table,
+            ['trendyol_category_id' => $trendyol_category_id],
+            ['%d']
+        );
+        
+        if ($result !== false) {
+            // Eski format eşleşmeleri güncelle (geriye uyumluluk)
+            $categories_api = new Trendyol_WC_Categories_API();
+            $categories_api->update_legacy_category_mappings();
+            
+            wp_send_json_success([
+                'message' => sprintf(
+                    __('Trendyol kategori ID %d için eşleştirmeler kaldırıldı.', 'trendyol-woocommerce'),
+                    $trendyol_category_id
+                )
+            ]);
+        } else {
+            wp_send_json_error(['message' => __('Eşleştirmeler kaldırılırken bir hata oluştu.', 'trendyol-woocommerce')]);
+        }
     }
     
     /**
