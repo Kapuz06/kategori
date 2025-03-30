@@ -1,0 +1,97 @@
+/* Trendyol Batch Widget Stilleri */
+.trendyol-batch-widget {
+    margin: 0 -12px;
+}
+
+.trendyol-batch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 0 12px;
+}
+
+.trendyol-batch-header h3 {
+    margin: 0;
+}
+
+.trendyol-batch-list {
+    padding: 0 12px;
+}
+
+.trendyol-batch-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.trendyol-batch-table th {
+    text-align: left;
+}
+
+.trendyol-batch-table .batch-id {
+    max-width: 280px;
+    word-break: break-all;
+}
+
+.batch-status {
+    font-weight: bold;
+}
+
+.status-success {
+    color: #46b450;
+}
+
+.status-processing {
+    color: #ffba00;
+}
+
+.status-failed {
+    color: #dc3232;
+}
+
+.status-unknown {
+    color: #72777c;
+}
+
+.trendyol-batch-details {
+    background: #f9f9f9;
+    border: 1px solid #e5e5e5;
+    padding: 12px;
+    margin-top: 12px;
+    border-radius: 3px;
+    display: none;
+}
+
+.trendyol-batch-stats {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.trendyol-batch-stats div {
+    margin-right: 20px;
+}
+
+.trendyol-batch-errors {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    padding: 10px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.trendyol-batch-errors h4 {
+    margin-top: 0;
+}
+
+.trendyol-batch-errors ul {
+    margin-bottom: 0;
+}
+
+.trendyol-loading {
+    text-align: center;
+    padding: 20px;
+}
+
+.check-batch-status {
+    cursor: pointer;
+}

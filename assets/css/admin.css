@@ -1,0 +1,436 @@
+/**
+ * Trendyol WooCommerce Admin CSS
+ */
+
+/* Genel Stiller */
+.trendyol-wc-card {
+    background-color: #fff;
+    border: 1px solid #e5e5e5;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+}
+/* Arama kutusu container */
+.trendyol-brand-search-container,
+.trendyol-category-search-container {
+    position: relative;
+    max-width: 400px;
+}
+/* Batch İşlem Durumlarının Stilleri */
+.trendyol-wc-batch-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.trendyol-wc-batch-table th {
+    text-align: left;
+}
+
+.trendyol-wc-batch-table .batch-id {
+    max-width: 280px;
+    word-break: break-all;
+    font-size: 11px;
+}
+
+.batch-status {
+    font-weight: bold;
+}
+
+.status-success {
+    color: #46b450;
+}
+
+.status-processing {
+    color: #ffba00;
+}
+
+.status-failed {
+    color: #dc3232;
+}
+
+.status-unknown {
+    color: #72777c;
+}
+/* Arama sonuçları */
+.trendyol-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-top: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 1000;
+    display: none;
+}
+
+.trendyol-search-results ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.trendyol-search-results li {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+}
+
+.trendyol-search-results li:hover {
+    background-color: #f9f9f9;
+}
+
+.trendyol-search-results li:last-child {
+    border-bottom: none;
+}
+
+.trendyol-search-results small {
+    color: #999;
+    margin-left: 5px;
+}
+
+.trendyol-search-results .no-results,
+.trendyol-search-results .error {
+    padding: 8px 12px;
+    margin: 0;
+}
+
+.trendyol-search-results .no-results {
+    color: #666;
+}
+
+.trendyol-search-results .error {
+    color: #a00;
+}
+.trendyol-wc-card-header {
+    border-bottom: 1px solid #eee;
+    padding: 12px 15px;
+    position: relative;
+}
+
+.trendyol-wc-card-header h2 {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #23282d;
+}
+
+.trendyol-wc-card-body {
+    padding: 15px;
+}
+
+.trendyol-wc-card-footer {
+    border-top: 1px solid #eee;
+    background-color: #f7f7f7;
+    padding: 10px 15px;
+    text-align: right;
+}
+
+/* Dashboard Grid */
+.trendyol-wc-dashboard-grid {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -10px;
+}
+
+.trendyol-wc-dashboard-grid .trendyol-wc-card {
+    flex: 1 1 calc(50% - 20px);
+    margin: 0 10px 20px;
+    min-width: 300px;
+}
+
+/* 襤statistik Stilleri */
+.trendyol-wc-stat-item {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.trendyol-wc-stat-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.trendyol-wc-stat-label {
+    font-weight: 600;
+    display: inline-block;
+    min-width: 200px;
+}
+
+.trendyol-wc-stat-value {
+    font-weight: 700;
+    color: #0073aa;
+}
+
+/* Tablo Stilleri */
+.trendyol-wc-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.trendyol-wc-table th {
+    text-align: left;
+    padding: 8px;
+}
+
+.trendyol-wc-table td {
+    padding: 8px;
+    vertical-align: middle;
+}
+
+.trendyol-wc-table .dashicons {
+    color: #606060;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Form Stilleri */
+.trendyol-wc-form-row {
+    margin-bottom: 15px;
+}
+
+.trendyol-wc-form-row label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.trendyol-wc-form-row select,
+.trendyol-wc-form-row input[type="text"],
+.trendyol-wc-form-row input[type="number"],
+.trendyol-wc-form-row input[type="date"] {
+    width: 100%;
+    max-width: 400px;
+}
+
+.trendyol-wc-form-actions {
+    margin-top: 20px;
+}
+
+/* Modal Form Stilleri */
+.trendyol-wc-modal-form {
+    background: #fff;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 15px;
+    position: absolute;
+    top: 30px;
+    right: 0;
+    z-index: 100;
+    min-width: 300px;
+}
+
+/* Aksiyon Butonlar */
+.trendyol-wc-actions {
+    white-space: nowrap;
+}
+
+.trendyol-wc-actions .button {
+    margin-right: 5px;
+}
+
+.trendyol-wc-actions .button:last-child {
+    margin-right: 0;
+}
+
+.trendyol-wc-action-links {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.trendyol-wc-action-link {
+    flex: 0 0 50%;
+    padding: 10px 0;
+    text-decoration: none;
+}
+
+.trendyol-wc-action-link .dashicons {
+    vertical-align: middle;
+    margin-right: 5px;
+}
+
+/* Log Stilleri */
+.trendyol-wc-log-files ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.trendyol-wc-log-files li {
+    margin: 0;
+    padding: 8px 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.trendyol-wc-log-files li:last-child {
+    border-bottom: none;
+}
+
+.trendyol-wc-log-files a.current {
+    font-weight: 700;
+    color: #000;
+}
+
+.trendyol-wc-log-content {
+    background: #f9f9f9;
+    padding: 10px;
+    overflow: auto;
+    max-height: 500px;
+}
+
+.trendyol-wc-log-content pre {
+    margin: 0;
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.trendyol-wc-card-actions {
+    position: absolute;
+    top: 12px;
+    right: 15px;
+}
+
+/* Meta Kutular */
+.trendyol-product-meta-box,
+.trendyol-order-meta-box {
+    margin: 10px 0;
+}
+
+.trendyol-meta-field {
+    margin-bottom: 12px;
+}
+
+.trendyol-meta-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.trendyol-meta-actions {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+
+.trendyol-status-active {
+    color: #46b450;
+}
+
+.trendyol-status-inactive {
+    color: #dc3232;
+}
+
+/* Durum renkleri */
+.order-status {
+    display: inline-block;
+    padding: 3px 6px;
+    background: #f7f7f7;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.order-status.status-completed {
+    background: #c8e6c9;
+    color: #2e7d32;
+}
+
+.order-status.status-processing {
+    background: #bbdefb;
+    color: #1565c0;
+}
+
+.order-status.status-on-hold {
+    background: #fff9c4;
+    color: #ff8f00;
+}
+
+.order-status.status-cancelled {
+    background: #ffcdd2;
+    color: #c62828;
+}
+
+
+/* Log Stilleri Eklentileri */
+.trendyol-wc-log-files li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.delete-log-button {
+    background: none;
+    border: none;
+    color: #a00;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.trendyol-wc-log-files li:hover .delete-log-button {
+    opacity: 1;
+}
+
+.delete-log-button:hover {
+    color: #dc3232;
+}
+
+.trendyol-wc-card-actions {
+    position: absolute;
+    top: 12px;
+    right: 15px;
+    display: flex;
+    gap: 5px;
+}
+
+.trendyol-wc-card-actions .button {
+    margin-left: 5px;
+}
+
+.delete-logs-button {
+    color: #a00 !important;
+    border-color: #a00 !important;
+}
+
+.delete-logs-button:hover {
+    background-color: #a00 !important;
+    color: #fff !important;
+}
+.trendyol-wc-search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.trendyol-wc-search-box input {
+    flex-grow: 1;
+}
+
+#clear-trendyol-cache {
+    white-space: nowrap;
+}
+/* Duyarl覺 Tasar覺m */
+@media screen and (max-width: 782px) {
+    .trendyol-wc-dashboard-grid .trendyol-wc-card {
+        flex: 1 1 100%;
+    }
+    
+    .trendyol-wc-stat-label {
+        min-width: auto;
+        display: block;
+    }
+    
+    .trendyol-wc-action-link {
+        flex: 0 0 100%;
+    }
+}

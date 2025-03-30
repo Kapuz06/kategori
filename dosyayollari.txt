@@ -1,0 +1,30 @@
+Yüklenen dosyaların ait olduğu klasör yolları aşağıdadır. Düzenlemeler bu yollar dikkate alınarak yapılmalı.
+
+* trendyol-woocommerce\includes\webhook\class-trendyol-wc-webhook.php - Ana webhook işleme sınıfı
+* trendyol-woocommerce\includes\webhook\class-trendyol-wc-webhook-handler.php - Webhook verileri işleme sınıfı
+* trendyol-woocommerce\includes\webhook\class-trendyol-wc-webhook-orders.php - Sipariş webhook'ları için özel işlemler
+* trendyol-woocommerce\includes\webhook\class-trendyol-wc-webhook-products.php - Ürün webhook'ları için özel işlemler
+* trendyol-woocommerce\templates\admin\webhook.php - Webhook ayarları için admin sayfası şablonu
+* trendyol-woocommerce\trendyol-woocommerce.php
+* trendyol-woocommerce\includes\api\class-trendyol-wc-api.php
+* trendyol-woocommerce\includes\api\class-trendyol-wc-brands-api.php
+* trendyol-woocommerce\includes\api\class-trendyol-wc-categories-api.php
+* trendyol-woocommerce\includes\api\class-trendyol-wc-orders-api.php
+* trendyol-woocommerce\includes\api\class-trendyol-wc-products-api.php
+* trendyol-woocommerce\includes\admin\class-trendyol-wc-admin.php
+* trendyol-woocommerce\includes\admin\class-trendyol-wc-orders.php
+* trendyol-woocommerce\includes\admin\class-trendyol-wc-products.php
+* trendyol-woocommerce\includes\admin\class-trendyol-wc-settings.php
+* trendyol-woocommerce\includes\sync\class-trendyol-wc-order-sync.php
+* trendyol-woocommerce\includes\sync\class-trendyol-wc-product-sync.php
+* trendyol-woocommerce\includes\helpers\trendyol-wc-helpers.php
+* trendyol-woocommerce\templates\admin\dashboard.php
+* trendyol-woocommerce\templates\admin\products.php
+* trendyol-woocommerce\templates\admin\orders.php
+* trendyol-woocommerce\templates\admin\categories.php
+* trendyol-woocommerce\templates\admin\brands.php
+* trendyol-woocommerce\templates\admin\logs.php
+* trendyol-woocommerce\templates\admin\product-meta-box.php
+* trendyol-woocommerce\templates\admin\order-meta-box.php
+* trendyol-woocommerce\assets\css\admin.css
+* trendyol-woocommerce\assets\js\admin.js
