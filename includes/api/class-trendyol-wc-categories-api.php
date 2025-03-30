@@ -383,7 +383,7 @@ class Trendyol_WC_Categories_API extends Trendyol_WC_API {
      *
      * @return bool İşlem başarılı mı
      */
-    private function update_legacy_category_mappings() {
+    public function update_legacy_category_mappings() {
         global $wpdb;
         
         $mappings_table = $wpdb->prefix . 'trendyol_category_mappings';
